@@ -31,7 +31,7 @@ jobs:
           flutter-version: '3.41.7'
 
       - name: Build Web App
-        # اضافه شدن --base-href برای حل مشکل صفحه سفید
+        # 🟢 اصلاح سینتکس جدید فلت: پارامتر base-href باید بعد از دستور web بیاید
         run: flet build web --base-href /HybridClinic/
 
       - name: Upload Artifact
@@ -40,7 +40,6 @@ jobs:
           path: build/web
 
   deploy:
-    # اضافه کردن محیط اجرای Node 24 برای رفع اخطار
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     environment:
