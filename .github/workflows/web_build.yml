@@ -25,9 +25,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      # 🟢 نصب دقیق نسخه‌ای که فلت نیاز دارد تا هیچ سوالی نپرسد
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.7'
+
       - name: Build Web App
-        # 🟢 صدور مجوز اتوماتیک به فلت برای دانلود نسخه دقیق فلاتر خودش
-        run: yes | flet build web
+        run: flet build web
 
       - name: Upload Artifact
         uses: actions/upload-pages-artifact@v3
@@ -39,12 +44,6 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
-
     needs: build
     steps:
       - name: Deploy to GitHub Pages
