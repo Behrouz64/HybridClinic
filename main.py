@@ -13,17 +13,18 @@ import logging
 # =====================================================================
 # ۱. بخش مدیریت پایگاه داده (DATABASE MANAGER)
 # =====================================================================
-# مسیرهای فایل‌ها به صورت پویا در تابع initialize_database مقداردهی می‌شوند
 SETTINGS_FILE = ""
 COMMENTS_FILE = ""
 USERS_FILE = ""
 LOGS_FILE = ""
 
-def initialize_database(page: ft.Page):
+def initialize_database():
     global SETTINGS_FILE, COMMENTS_FILE, USERS_FILE, LOGS_FILE
     
-    # 🟢 دریافت مسیر ۱۰۰٪ امن و دائمی اختصاص یافته توسط اندروید به اپلیکیشن
-    base_dir = page.data_dir
+    # 🟢 راه‌حل رسمی فلت برای دسترسی به مسیر امن دیتای اپلیکیشن در اندروید
+    base_dir = os.getenv("FLET_APP_STORAGE_DATA")
+    
+    # فال‌بک برای حالتی که روی ویندوز یا ترموکس تست می‌کنید
     if not base_dir:
         base_dir = os.path.join(os.path.expanduser("~"), ".hybridclinic")
         
@@ -104,7 +105,6 @@ def save_logs(data):
 def clear_logs():
     save_json(LOGS_FILE, [])
 
-
 # =====================================================================
 # ۲. بخش موتور ارسال پیامک خوش‌آمدگویی (SMS ENGINE)
 # =====================================================================
@@ -154,7 +154,6 @@ def send_sms(page, mobile, text, mode="local"):
             return False
 
     return False
-
 
 # =====================================================================
 # ۳. بخش رابط کاربری تنظیمات (SETTINGS VIEW)
@@ -224,7 +223,6 @@ class SettingsView(ft.View):
         setattr(self.page_ref, "auth_user", None)
         if hasattr(self.page_ref, "go_to"):
             self.page_ref.go_to("/")
-
 
 # =====================================================================
 # ۴. بخش رابط کاربری اصلی کلینیک (HOME VIEW)
@@ -597,8 +595,8 @@ class HomeView(ft.View):
 # ۵. بخش روتینگ و مقداردهی اولیه برنامه (MAIN ROUTER & INITIALIZATION)
 # =====================================================================
 def main(page: ft.Page):
-    # 🟢 فراخوانی هوشمند ساخت مسیر فایل‌ها بر اساس دیتای زنده محیط اندروید
-    initialize_database(page)
+    # 🟢 فراخوانی مستقیم ساخت دیتابیس در هنگام شروع برنامه
+    initialize_database()
     
     page.title = "سامانه مدیریت هوشمند کلینیک"
     page.theme_mode = ft.ThemeMode.LIGHT
