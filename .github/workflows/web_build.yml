@@ -25,13 +25,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: 'stable'
-
       - name: Build Web App
-        run: flet build web
+        # 🟢 صدور مجوز اتوماتیک به فلت برای دانلود نسخه دقیق فلاتر خودش
+        run: yes | flet build web
 
       - name: Upload Artifact
         uses: actions/upload-pages-artifact@v3
@@ -43,6 +39,12 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
     needs: build
     steps:
       - name: Deploy to GitHub Pages
