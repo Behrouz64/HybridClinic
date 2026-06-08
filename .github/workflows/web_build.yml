@@ -25,14 +25,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # 🟢 نصب دقیق نسخه‌ای که فلت نیاز دارد تا هیچ سوالی نپرسد
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.41.7'
 
       - name: Build Web App
-        run: flet build web
+        # اضافه شدن --base-href برای حل مشکل صفحه سفید
+        run: flet build web --base-href /HybridClinic/
 
       - name: Upload Artifact
         uses: actions/upload-pages-artifact@v3
@@ -40,6 +40,9 @@ jobs:
           path: build/web
 
   deploy:
+    # اضافه کردن محیط اجرای Node 24 برای رفع اخطار
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
