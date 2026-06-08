@@ -1,16 +1,19 @@
 [project]
 name = "HybridClinic"
 version = "1.0.0"
-description = "Hybrid Clinic"
+description = "Hybrid Clinic Management System"
+requires-python = ">=3.11"
 
 dependencies = [
-    "flet",
-    "requests"
+    "flet>=0.28.0",
+    "requests>=2.31.0"
 ]
 
 [tool.flet]
 org = "com.iranlasik"
 product = "HybridClinic"
+company = "IranLasik"
 
 [tool.flet.android]
 min_sdk_version = 24
+target_sdk_version = 35
