@@ -11,18 +11,57 @@ import os
 import logging
 
 # =====================================================================
-# ۱. بخش مدیریت پایگاه داده (DATABASE MANAGER - EMBEDDED)
+# ۱. بخش مدیریت پایگاه داده (DATABASE MANAGER)
 # =====================================================================
-APP_DATA_DIR = os.path.join(os.path.expanduser("~"), ".hybridclinic")
-os.makedirs(APP_DATA_DIR, exist_ok=True)
+# مسیرهای فایل‌ها به صورت پویا در تابع initialize_database مقداردهی می‌شوند
+SETTINGS_FILE = ""
+COMMENTS_FILE = ""
+USERS_FILE = ""
+LOGS_FILE = ""
 
-SETTINGS_FILE = os.path.join(APP_DATA_DIR, "settings.json")
-COMMENTS_FILE = os.path.join(APP_DATA_DIR, "comments.json")
-USERS_FILE = os.path.join(APP_DATA_DIR, "users.json")
-LOGS_FILE = os.path.join(APP_DATA_DIR, "logs.json")
+def initialize_database(page: ft.Page):
+    global SETTINGS_FILE, COMMENTS_FILE, USERS_FILE, LOGS_FILE
+    
+    # 🟢 دریافت مسیر ۱۰۰٪ امن و دائمی اختصاص یافته توسط اندروید به اپلیکیشن
+    base_dir = page.data_dir
+    if not base_dir:
+        base_dir = os.path.join(os.path.expanduser("~"), ".hybridclinic")
+        
+    os.makedirs(base_dir, exist_ok=True)
+    
+    SETTINGS_FILE = os.path.join(base_dir, "settings.json")
+    COMMENTS_FILE = os.path.join(base_dir, "comments.json")
+    USERS_FILE = os.path.join(base_dir, "users.json")
+    LOGS_FILE = os.path.join(base_dir, "logs.json")
+
+    # ساخت خودکار فایل تنظیمات در اولین اجرا
+    if not os.path.exists(SETTINGS_FILE):
+        save_json(SETTINGS_FILE, {"sms_mode": "local", "sms_text": "از مراجعه شما به مطب سپاسگزاریم."})
+        
+    # ساخت خودکار دیتابیس نظرات در اولین اجرا
+    if not os.path.exists(COMMENTS_FILE):
+        default_comments = {
+            "lasik": ["نتیجه عمل لیزیک من فوق‌العاده بود، ممنون از پزشک حاذق.", "بسیار متبحر و با اخلاق هستند."],
+            "cataract": ["عمل کاتاراکت مادرم عالی بود و بینایی‌شون کاملا برگشت.", "توضیحات دقیق و جراحی بی‌نقص."],
+            "retina": ["تزریق شبکیه کاملا بدون درد و با دقت بالا انجام شد.", "پزشک بسیار دلسوز و مسلط."],
+            "blepharoplasty": ["جراحی پلک من بسیار طبیعی و بدون رد بخیه انجام شد.", "فرم چشم‌هایم عالی شده است."]
+        }
+        save_json(COMMENTS_FILE, default_comments)
+        
+    # ساخت خودکار کاربر ادمین در اولین اجرا
+    if not os.path.exists(USERS_FILE):
+        default_users = {
+            "admin": {"password": "123", "is_active": True, "can_edit_comments": True, "can_send_reports": True},
+            "monshi": {"password": "456", "is_active": True, "can_edit_comments": True, "can_send_reports": True}
+        }
+        save_json(USERS_FILE, default_users)
+        
+    # ساخت خودکار فایل لوکال گزارشات
+    if not os.path.exists(LOGS_FILE):
+        save_json(LOGS_FILE, [])
 
 def load_json(filepath, default_val):
-    if os.path.exists(filepath):
+    if filepath and os.path.exists(filepath):
         try:
             with open(filepath, "r", encoding="utf-8") as f:
                 return json.load(f)
@@ -31,11 +70,12 @@ def load_json(filepath, default_val):
     return default_val
 
 def save_json(filepath, data):
-    try:
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=4)
-    except:
-        pass
+    if filepath:
+        try:
+            with open(filepath, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=4)
+        except:
+            pass
 
 def load_settings():
     return load_json(SETTINGS_FILE, {"sms_mode": "local", "sms_text": "از مراجعه شما به مطب سپاسگزاریم."})
@@ -44,25 +84,13 @@ def save_settings(data):
     save_json(SETTINGS_FILE, data)
 
 def load_comments():
-    # دیتابیس پیش‌فرض نظرات کلینیک در صورت عدم وجود فایل خارجی
-    default_comments = {
-        "lasik": ["نتیجه عمل لیزیک من فوق‌العاده بود، ممنون از پزشک حاذق.", "بسیار متبحر و با اخلاق هستند."],
-        "cataract": ["عمل کاتاراکت مادرم عالی بود و بینایی‌شون کاملا برگشت.", "توضیحات دقیق و جراحی بی‌نقص."],
-        "retina": ["تزریق شبکیه کاملا بدون درد و با دقت بالا انجام شد.", "پزشک بسیار دلسوز و مسلط."],
-        "blepharoplasty": ["جراحی پلک من بسیار طبیعی و بدون رد بخیه انجام شد.", "فرم چشم‌هایم عالی شده است."]
-    }
-    return load_json(COMMENTS_FILE, default_comments)
+    return load_json(COMMENTS_FILE, {})
 
 def save_comments(data):
     save_json(COMMENTS_FILE, data)
 
 def load_users():
-    # حساب کاربری پیش‌فرض منشی‌ها
-    default_users = {
-        "maryam": {"password": "123", "is_active": True, "can_edit_comments": True, "can_send_reports": True},
-        "monshi": {"password": "456", "is_active": True, "can_edit_comments": True, "can_send_reports": True}
-    }
-    return load_json(USERS_FILE, default_users)
+    return load_json(USERS_FILE, {})
 
 def save_users(data):
     save_json(USERS_FILE, data)
@@ -78,7 +106,7 @@ def clear_logs():
 
 
 # =====================================================================
-# ۲. بخش موتور ارسال پیامک خوش‌آمدگویی (SMS ENGINE - EMBEDDED)
+# ۲. بخش موتور ارسال پیامک خوش‌آمدگویی (SMS ENGINE)
 # =====================================================================
 def send_sms(page, mobile, text, mode="local"):
     if not mobile or len(mobile) != 11 or not mobile.startswith("09"):
@@ -129,7 +157,7 @@ def send_sms(page, mobile, text, mode="local"):
 
 
 # =====================================================================
-# ۳. بخش رابط کاربری تنظیمات (SETTINGS VIEW - EMBEDDED)
+# ۳. بخش رابط کاربری تنظیمات (SETTINGS VIEW)
 # =====================================================================
 class SettingsView(ft.View):
     def __init__(self, page: ft.Page):
@@ -199,7 +227,7 @@ class SettingsView(ft.View):
 
 
 # =====================================================================
-# ۴. بخش رابط کاربری اصلی کلینیک (HOME VIEW - EMBEDDED)
+# ۴. بخش رابط کاربری اصلی کلینیک (HOME VIEW)
 # =====================================================================
 class HomeView(ft.View):
     def __init__(self, page: ft.Page):
@@ -569,6 +597,9 @@ class HomeView(ft.View):
 # ۵. بخش روتینگ و مقداردهی اولیه برنامه (MAIN ROUTER & INITIALIZATION)
 # =====================================================================
 def main(page: ft.Page):
+    # 🟢 فراخوانی هوشمند ساخت مسیر فایل‌ها بر اساس دیتای زنده محیط اندروید
+    initialize_database(page)
+    
     page.title = "سامانه مدیریت هوشمند کلینیک"
     page.theme_mode = ft.ThemeMode.LIGHT
     page.rtl = True
