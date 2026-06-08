@@ -1,0 +1,16 @@
+[project]
+name = "HybridClinic"
+version = "1.0.0"
+description = "Hybrid Clinic"
+
+dependencies = [
+    "flet",
+    "requests"
+]
+
+[tool.flet]
+org = "com.iranlasik"
+product = "HybridClinic"
+
+[tool.flet.android]
+min_sdk_version = 24
