@@ -1,35 +1,50 @@
 name: Build Android APK
 
 on:
-  workflow_dispatch
+  workflow_dispatch:
 
 jobs:
-  build:
+  build-apk:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout source
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - run: |
+      - name: Install Python dependencies
+        run: |
           python -m pip install --upgrade pip
+          pip install flet
           pip install -r requirements.txt
 
-      - uses: actions/setup-java@v4
+      - name: Setup Java
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: "17"
 
-      - uses: subosito/flutter-action@v2
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
-          flutter-version: stable
+          flutter-version: "3.35.7"
 
-      - run: flet build apk
+      - name: Verify installations
+        run: |
+          flutter --version
+          python --version
+          flet --version
 
-      - uses: actions/upload-artifact@v4
+      - name: Build APK
+        run: |
+          flet build apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
           name: HybridClinic-APK
           path: build/apk/*.apk
