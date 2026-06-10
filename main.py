@@ -9,6 +9,8 @@ import urllib.parse
 import json
 import os
 import traceback
+import threading
+import time
 
 # =====================================================================
 # ۱. بخش مدیریت پایگاه داده (DATABASE MANAGER - CRASH PROOF)
@@ -81,7 +83,7 @@ class DynamicDataManager:
 
 
 # =====================================================================
-# ۲. موتور ارسال پیامک
+# ۲. موتور ارسال پیامک خوش‌آمدگویی
 # =====================================================================
 def send_sms(page, mobile, text, mode, settings_data):
     if not mobile or len(mobile) != 11 or not mobile.startswith("09"): return False
@@ -111,7 +113,7 @@ def send_sms(page, mobile, text, mode, settings_data):
 
 
 # =====================================================================
-# ۳. بدنه اصلی برنامه (تک‌صفحه‌ای و کاملاً ریسپانسیو)
+# ۳. بدنه اصلی برنامه (تک‌صفحه‌ای ضد کرش و فوق‌پایدار)
 # =====================================================================
 def main(page: ft.Page):
     page.title = "سامانه مدیریت هوشمند کلینیک"
@@ -121,6 +123,54 @@ def main(page: ft.Page):
     db = DynamicDataManager()
     state = {"user": None, "token": None, "category": None}
     
+    # -----------------------------------------------------------------
+    # موتور همگام‌سازی زنده با سرور مرکزی ایران‌لیزیک (بروزرسانی در بدو ورود)
+    # -----------------------------------------------------------------
+    def sync_with_server_bg():
+        try:
+            res = requests.get("https://api.iranlasik.ir/api/sync", headers={"x-api-token": "Secure_Key_2026"}, timeout=6)
+            if res.status_code == 200:
+                data = res.json()
+                if "settings" in data: db.save_settings(data["settings"])
+                if "users" in data: db.save_users(data["users"])
+                if "comments" in data: db.save_comments(data["comments"])
+                status_bar.value = "✅ اتصال برقرار شد؛ اطلاعات مطب همگام‌سازی شد."
+                page.update()
+        except:
+            pass
+
+    # -----------------------------------------------------------------
+    # موتور پشتیبان و گوش‌به‌زنگ پیام‌رسان بله (پک اضطراری دیتابیس)
+    # -----------------------------------------------------------------
+    def bale_polling_bg():
+        TOKEN = "1137791878:xD-QEx6ZHEuqnzBmBFRUklgzo7wFqTDrOmY"
+        BASE_URL = f"https://tapi.bale.ai/bot{TOKEN}"
+        last_update_id = 0
+        while True:
+            try:
+                res = requests.get(f"{BASE_URL}/getUpdates", params={"offset": last_update_id, "timeout": 10}, timeout=15)
+                if res.status_code == 200:
+                    updates = res.json().get("result", [])
+                    for update in updates:
+                        last_update_id = update["update_id"] + 1
+                        msg = update.get("message", {})
+                        if "document" in msg and msg["document"].get("file_name") == "clinic_data.json":
+                            file_id = msg["document"]["file_id"]
+                            chat_id = msg["chat"]["id"]
+                            file_res = requests.get(f"{BASE_URL}/getFile", params={"file_id": file_id}).json()
+                            if file_res.get("ok"):
+                                file_path = file_res["result"]["file_path"]
+                                content = requests.get(f"https://tapi.bale.ai/file/bot{TOKEN}/{file_path}").text
+                                data = json.loads(content)
+                                if "settings" in data: db.save_settings(data["settings"])
+                                if "comments" in data: db.save_comments(data["comments"])
+                                if "users" in data: db.save_users(data["users"])
+                                requests.post(f"{BASE_URL}/sendMessage", json={"chat_id": chat_id, "text": "✅ دیتابیس گوشی مطب از طریق بله آپدیت شد."})
+                                status_bar.value = "📥 دیتابیس اضطراری از بله دریافت شد."
+                                page.update()
+            except: pass
+            time.sleep(4)
+
     # -----------------------------------------------------------------
     # بخش الف: فرم ورود (Login Screen)
     # -----------------------------------------------------------------
@@ -141,6 +191,10 @@ def main(page: ft.Page):
             
             preview_field.visible = users[u].get("can_edit_comments", False)
             end_shift_btn.visible = users[u].get("can_send_reports", False)
+            
+            # فعال‌سازی متقاطع موتورهای پس‌زمینه بعد از لاگین موفق
+            threading.Thread(target=sync_with_server_bg, daemon=True).start()
+            threading.Thread(target=bale_polling_bg, daemon=True).start()
             
             page.update()
         else:
@@ -231,7 +285,6 @@ def main(page: ft.Page):
                     preview_field.value = random.choice(db.load_comments().get(category_data, ["پزشک عالی است"]))
                     sms_text_field.value = db.load_settings().get("sms_text", "از مراجعه شما سپاسگزاریم.")
                     preview_container.visible = True
-                    # 🟢 اصلاح قطعی: حذف کلمه کلیدی ویرانگر self از متغیر محلی گرافیکی اندروید
                     status_bar.value, status_bar.color = "✅ کد تایید شد. گزینه نهایی را انتخاب کنید.", "green"
                 else:
                     status_bar.value = "❌ " + data.get('message', 'کد منقضی شده') + chr(10) + "💡 راهنما: مجدداً دکمه دریافت کد را بزنید."
@@ -333,7 +386,7 @@ def main(page: ft.Page):
         except: pass
 
         output = io.StringIO()
-        output.write('﻿')
+        output.write('\ufeff')
         writer = csv.writer(output)
         writer.writerow(["ردیف", "موبایل", "درمان", "نظر"])
         for i, log in enumerate(logs, 1):
@@ -359,7 +412,7 @@ def main(page: ft.Page):
         ft.ElevatedButton("دریافت کد تایید", on_click=request_otp, width=200, bgcolor="teal800", color="white"),
         code_field,
         category_buttons,
-        ft.TextButton("🧹 پاکسازی فرم جاری", on_click=reset_form_click, icon=ft.icons.REFRESH, icon_color="red"),
+        ft.TextButton("🧹 پاکسازی فرم جاری", on_click=reset_form_click, icon="refresh", icon_color="red"),
         preview_container,
         ft.Divider(height=10),
         status_bar,
@@ -410,15 +463,14 @@ def main(page: ft.Page):
     ], horizontal_alignment="center", visible=False)
 
     # -----------------------------------------------------------------
-    # رندر نهایی لایه‌های تک صفحه‌ای
+    # رندر نهایی لایه‌های دکمه بار بالا (اصلاح قطعی با حذف آیکون باتن مشکل دار)
     # -----------------------------------------------------------------
-    # 🟢 اصلاح قطعی: فراخوانی آیکون‌های بومی سیستم با فرمت استاندارد Flet V1 برای ناپدید کردن نوار سرخ ارور
     page.appbar = ft.AppBar(
         title=ft.Text("مدیریت هوشمند کلینیک", color="white"),
         bgcolor="teal700",
         actions=[
-            ft.IconButton(icon=ft.icons.SETTINGS, icon_color="white", on_click=open_settings, tooltip="تنظیمات"),
-            ft.IconButton(icon="logout", icon_color="white", on_click=do_logout, tooltip="خروج")
+            ft.TextButton(content=ft.Text("⚙️ تنظیمات", color="white"), on_click=open_settings),
+            ft.TextButton(content=ft.Text("🚪 خروج", color="white"), on_click=do_logout)
         ]
     )
     
