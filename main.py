@@ -1,487 +1,353 @@
-# -*- coding: utf-8 -*-
 import flet as ft
 import requests
 import random
-import datetime
-import csv
-import io
-import urllib.parse
 import json
-import os
-import traceback
-import threading
-import time
 
-# =====================================================================
-# ۱. بخش مدیریت پایگاه داده (DATABASE MANAGER - کاملاً دست‌نخورده و بومی)
-# =====================================================================
-class DynamicDataManager:
-    def __init__(self):
-        self.ram_mode = False
-        self.data = {
-            "settings": {"sms_mode": "local", "sms_text": "از مراجعه شما به مطب سپاسگزاریم."},
-            "comments": {
-                "lasik": ["نتیجه عمل لیزیک من فوق‌العاده بود، ممنون از پزشک حاذق.", "بسیار متبحر و با اخلاق هستند."],
-                "cataract": ["عمل کاتاراکت مادرم عالی بود و بینایی‌شون کاملا برگشت.", "توضیحات دقیق و جراحی بی‌نقص."],
-                "retina": ["تزریق شبکیه کاملا بدون درد و با دقت بالا انجام شد.", "Pزشک بسیار دلسوز و مسلط."],
-                "blepharoplasty": ["جراحی پلک من بسیار طبیعی و بدون رد بخیه انجام شد.", "فرم چشم‌هایم عالی شده است."]
-            },
-            "users": {
-                "admin": {"password": "123", "is_active": True, "can_edit_comments": True, "can_send_reports": True},
-                "monshi": {"password": "456", "is_active": True, "can_edit_comments": True, "can_send_reports": True}
-            },
-            "logs": []
-        }
-        
-        dirs_to_try = [os.environ.get("FLET_APP_STORAGE_DATA"), os.path.expanduser("~"), os.getcwd()]
-        self.base_dir = None
-        
-        for d in dirs_to_try:
-            if d:
-                try:
-                    p = os.path.join(d, "hybrid_clinic_storage")
-                    os.makedirs(p, exist_ok=True)
-                    self.base_dir = p
-                    break
-                except:
-                    continue
-                    
-        if not self.base_dir:
-            self.ram_mode = True
+# شناسه اختصاصی جدید شما در سایت نوبت دات آی آر
+DOCTOR_ID = "261969"
+HEADERS = {
+    "origin": "https://plugin.nobat.ir",
+    "referer": "https://plugin.nobat.ir/",
+    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36"
+}
 
-    def get_file_path(self, filename):
-        return os.path.join(self.base_dir, filename) if self.base_dir else None
+# دیتابیس نظرات تعبیه شده مستقیم درون کد (بجای فایل خارجی)
+COMMENTS_DB = {
+  "lasik": [
+    "عمل اسمایل چشمم رو دکتر نجمه کرباسی با دقت بالا انجام دادن و الان دیدم فوق‌العاده شفاف شده. مهارت کار ایشون واقعاً بی‌نظیره و اصلاً دردی حس نکردم. پرسنل خوش‌برخورد مطب هم تمام مراحل قبل و بعد عمل رو با حوصله برام توضیح دادن. محیط کاری ایشون هم بسیار تمیز و آرامش‌بخش بود.",
+    "جراحی فمتولیزیک من توسط دکتر نجمه کرباسی انجام شد و از نتیجه کار کاملاً راضی هستم. ظرافت و سرعت عمل خانم دکتر در اتاق عمل واقعاً دیدنی بود. همکاران تیم ایشون هم خیلی حرفه‌ای و باانگیزه من رو در تمام مراحل راهنمایی کردن. کل فضای مطب نظم و انضباط خیلی خوب و اتمسفر مثبتی داشت.",
+    "جراحی چشم به روش اسمایل پیش دکتر کرباسی بهترین تصمیمی بود که برای سلامتی چشمام گرفتم. تسلط بالا و تکنیک جراحی خانم دکتر باعث شد فرداش راحت به کارهای روزمره‌ام برسم. پرسنل و کادر پذیرش هم خیلی خوش‌برخورد، صبور و محترم بودن. در ضمن محیط کاری و فضای مطبشون هم بسیار آرامش‌بخش و مجهز است.",
+    "تشخیص دقیق دکتر نجمه کرباسی برای چشم من عمل لازک بود که خوشبختانه نتیجه‌اش فوق‌العاده شد. تجربه و دانش بالای ایشون در زمینه جراحی‌های رفراکتیو واقعاً تکه و به آدم آرامش میده. هیچ عارضه‌ای بعد از عمل نداشتم و از روز دوم به زندگی عادی برگشتم. دید شبم هم کاملاً واضح و بدون پخش نور شده است.",
+    "جراحی ترانس پی‌آرکی رو پیش دکتر نجمه کرباسی انجام دادم و نقاهت خیلی راحتی رو پشت سر گذاشتم. دستان توانا و هنرمند خانم دکتر عینک رو بعد از سال‌ها از زندگی من حذف کرد. وضوح تصاویری که الان می‌بینم اصلاً با دوران عینک قابل مقایسه نیست. به نظرم ایشون یکی از بهترین متخصصان قرنیه هستند.",
+    "با وجود اینکه سنم بالا رفته بود و پیرچشمی داشتم، دکتر نجمه کرباسی روش مونوویژن رو برام اجرا کردن که معجزه کرد. الان هم دور رو عالی می‌بینم و هم برای نزدیک نیازی به عینک مطالعه ندارم. این متد جراحی واقعاً زندگی من رو راحت‌تر کرده است. از تخصص و مشاوره عالی ایشون بی‌نهایت سپاسگزارم.",
+    "فمتولیزیک چشمم توسط دکتر کرباسی با موفقیت کامل انجام شد و نمره چشمم کاملاً صفر شد. تخصص بالای خانم دکتر حس امنیت و اعتماد کامل به بیمار منتقل می‌کنه. بعد از عمل اصلاً سوزش یا خشکی چشم شدید نداشتم. وضوح و کیفیت دیدم فوق‌العاده تغییر کرده است.",
+    "عمل لازک موفقی پیش دکتر کرباسی داشتم و کیفیت دیدم از زمان عینک زدن هم خیلی بهتر شده. تشخیص درست و کار بلد بودن ایشون در جلسه اول معاینه کاملاً مشهود بود. بدون هیچ استرسی عمل انجام شد و فرآیند بهبودم خیلی سریع پیش رفت. پیشنهاد می‌کنم حتماً برای مشاوره پیش ایشون برید.",
+    "جراحی ترانس پی‌آرکی چشم‌های من رو دکتر کرباسی انجام دادن و نتیجه برای من باورنکردنی بود. علم و مهارت خانم دکتر در جراحی عیوب انکساری چشم حرف اول رو میزنه. اصلاً فکرش رو نمی‌کردم که بدون عینک بتونم انقدر دقیق دنیا رو ببینم. از زحمات پزشک دلسوزم صمیمانه تشکر می‌کنم.",
+    "برای رفع پیرچشمی مراجعه کردم و دکتر کرباسی جراحی مونوویژن رو برام پیشنهاد دادن که نتیجه‌اش فوق‌العاده بود. از کار دقیق و تکنیک تخصصی خانم دکتر هرچی بگم کم گفتم چون دیدم عالی شده. این روش برای سن من بهترین بازدهی رو داشت و کاملاً از عینک راحت شدم. تخصص ایشون در این زمینه واقعاً تحسین‌برانگیز است.",
+    "عمل اسمایل انجام دادم و از کار دقیق و ظریف دکتر کرباسی بی‌نهایت سپاسگزارم. ایشون توی جراحی رفراکتیو چشم یک استاد به تمام معنا و بسیار بااخلاق هستن. نقاهت این عمل به شدت کوتاه بود و هیچ دردی احساس نکردم. الان بعد از چند ماه دیدم همچنان کامل و بی‌نقص است.",
+    "جراحی فمتولیزیک من پیش دکتر کرباسی فوق‌العاده راحت و بدون هیچ عارضه‌ای پیش رفت. مهارت بالای خانم دکتر و برخورد پزشکیشون استرس رو کاملاً دور می‌کنه. از دقت بالای ایشون در بررسی ضخامت قرنیه قبل از عمل خیلی ممنونم. این جراحی کیفیت زندگی من رو به کل تغییر داد.",
+    "عمل لازک چشمم توسط دکتر کرباسی با بهترین کیفیت انجام شد و دید شبم هم کاملاً واضح است. تخصص بالای ایشون باعث شد کوچک‌ترین خشکی چشم یا مشکلی پیدا نکنم. معاینات بعد از عمل هم بسیار با دقت و حوصله توسط خودشان انجام شد. در انتخاب ایشون اصلاً شک نکنید.",
+    "از نتیجه عمل ترانس پی‌آرکی پیش دکتر کرباسی بی‌نهایت راضی هستم و عینک رو کنار گذاشتم. تکنیک عالی و مهارت جراحی خانم دکتر واقعاً در سطح بین‌المللی و فوق‌العاده است. تصاویر رو با جزئیات و رنگ‌های واقعی می‌بینم که برام شگفت‌انگیز است. دست خانم دکتر واقعاً سبک و هنرمند است.",
+    "با روش مونوویژن که خانم دکتر کرباسی برام انجام دادن، هم مشکل پیرچشمی و هم دوربینی من کاملاً برطرف شد. دانش بروز و دست سبک ایشون واقعاً برای بیماران یک نعمت بزرگ است. الان بدون عینک هم مطالعه می‌کنم و هم رانندگی، که حس خیلی خوبی دارد. از زحمات ایشان کمال تشکر را دارم."
+  ],
+  "cataract": [
+    "جراحی فمتوکاتاراکت مادرم توسط دکتر نجمه کرباسی با استفاده از لنزهای چند کانونه انجام شد و نتیجه عالی بود. دید مادرم بدون نیاز به عینک کاملاً شفاف شده و کار خانم دکتر بی‌نظیره. پرسنل و کادر درمانشون هم با صبر و حوصله زیاد کارهای پذیرش رو انجام دادن. محیط کاری مطب هم بسیار مجهز، مدرن و منظم بود.",
+    "چشم‌پزشک خودم به خاطر پیچیدگی شدید آب مروارید چشمم، من رو به دکتر نجمه کرباسی ارجاع داد. مهارت ویژه و تخصص خانم دکتر در مدیریت این مورد پیچیده باعث شد بیناییم کاملاً برگرده. همکاران تیم ایشون هم خیلی خوش‌برخورد، دلسوز و پیگیر وضعیت درمانم بودن. فضای مطب هم بسیار آرام، شیک و مجهز بود.",
+    "به دلیل آب مروارید بسیار پیشرفته و عوارض خاص، پزشکان دیگر من رو به دکتر کرباسی معرفی کردن. مهارت خاص و دستان توانمند خانم دکتر در جراحی این مورد سخت واقعاً معجزه کرد و بیناییم برگشت. تیم پذیرش و دستیارانشون هم برخورد خیلی محترمانه و دلگرمی داشتند. فضای کاری کلینیک هم بسیار منظم و مجهز بود.",
+    "عمل آب مروارید پدرم رو دکتر نجمه کرباسی انجام دادن و یک لنز فوق‌العاده خوب و باکیفیت برامون گذاشتن. تخصص و پنجه طلا بودن خانم دکتر در همان روز اول بعد عمل کاملاً ثابت شد. وضوح رنگ‌ها و تصاویر برای پدرم زنده شده است. از پیگیری و مهارت عالی ایشان صمیمانه سپاسگزاریم.",
+    "جراحی کاتاراکت چشم من با لنزهای چند کانونه پیشرفته توسط دکتر نجمه کرباسی انجام شد و دیدم فوق‌العاده است. دقت و ظرافت کار خانم دکتر باعث شد دید دور و نزدیکم کاملاً اصلاح بشه. بعد از جراحی اصلاً احساس تاری یا درد نداشتم. ایشون واقعاً در جراحی آب مروارید استاد هستند.",
+    "جراحی آب مروارید با لیزر فمتوکاتاراکت پیش دکتر نجمه کرباسی تجربه‌ای بدون درد و فوق‌العاده راحت بود. علم بروز خانم دکتر و تسلطشون روی دستگاه‌های جدید واقعاً تحسین‌برانگیز و مایه اطمینان است. بعد از عمل سریعاً به زندگی روزمره برگشتم و افتخار می‌کنم که ایشون پزشکم بودند. دیدم کاملاً شفاف و بی‌نقص شده است.",
+    "عمل کاتاراکت چشم چپم رو دکتر کرباسی با یک لنز بسیار عالی انجام دادن و وضوح دیدم ۱۰۰ درصد شد. تخصص بالا، سرعت دست و اخلاق پزشکی خانم دکتر واقعاً نمونه و بی‌نظیر است. جراحی بسیار سریع تمام شد و هیچ عارضه‌ای گریبان‌گیر من نشد. از دستان معجزه‌گر ایشان کمال تشکر را دارم.",
+    "خانم دکتر کرباسی جراحی آب مروارید من رو با لنزهای چند کانونه انجام دادن و الان حتی برای مطالعه هم عینک نمی‌زنم. مهارت جراحی و دانش بروز ایشون فراتر از تصور من بود و عالی عمل کردن. کیفیت دیدم به شدت بالا رفته و انگار چشمانم دوباره جوان شده‌اند. جراحی کاتاراکت با این سطح از تخصص واقعاً فوق‌العاده است.",
+    "از جراحی فمتوکاتاراکت خودم پیش دکتر کرباسی بسیار راضی هستم و تصاویر رو کاملاً شفاف می‌بینم. سرعت عمل, دقت بالا و آرامش خانم دکتر در اتاق جراحی فوق‌العاده و تحسین‌برانگیز بود. لنز بکار رفته بسیار باکیفیت است و هیچ نوری پخش نمی‌شود. درمان چشم با این متد روز دنیا بهترین تجربه من بود.",
+    "پرونده آب مروارید پدرم به قدری پیچیده بود که چند جا ما رو ناامید کردن تا اینکه همکاران چشم‌پزشک، دکتر کرباسی رو معرفی کردن. مهارت ویژه خانم دکتر در جراحی‌های سخت چشم واقعاً نجات‌بخش دید پدرم شد و جراحی فوق‌العاده موفق بود. تشخیص و درمان ایشون دقیقاً به موقع انجام شد. تا آخر عمر دعای خیر ما همراهشان خواهد بود.",
+    "جراحی کاتاراکت مادرم پیش دکتر کرباسی با بهترین لنز داخل چشمی انجام شد و نتیجه کاملاً بی‌نقص بود. تشخیص عالی و کار بلد بودن خانم دکتر در کلینیک کاملاً متمایز و آشکار است. مادرم بعد از سال‌ها دوباره بدون عینک کارهای شخصی‌اش را انجام می‌دهد. مهارت جراحی ایشان واقعاً ستودنی است.",
+    "عمل آب مروارید چشمم با تکنیک عالی و لنزهای چند کانونه توسط دکتر کرباسی انجام شد و عینک رو کنار گذاشتم. مهارت جراحی فوق‌العاده ایشون باعث شد دوران نقاهت بسیار کوتاهی داشته باشم. وضوح و کنتراست تصاویر بعد عمل برام شگفت‌انگیز است. از زحمات بی‌دریغ این پزشک متعهد سپاسگزارم.",
+    "جراحی لیزر فمتوکاتاراکت من رو دکتر کرباسی با بالاترین استانداردها و تخصص بالا انجام دادن. دانش خانم دکتر در استفاده از تکنولوژی‌های روز دنیا واقعاً مایه افتخار و اطمینان است. این عمل بدون کوچک‌ترین درد یا بخیه‌ای انجام شد و نتیجه‌اش عالی بود. بینایی کاملاً شفافم را مدیون ایشان هستم.",
+    "به خاطر ضربه به چشم، دچار آب مروارید عجیبی شده بودم که پزشکان دیگر گفتند جراحی آن فقط کار دکتر کرباسی است. مهارت خاص ایشون در حل این پرونده پیچیده بینایی من رو حفظ کرد و واقعاً مدیونشون هستم. جراحی به بهترین شکل جلو رفت و هیچ مشکلی پیش نیامد. تسلط ایشان روی موارد حاد بی‌نظیر است.",
+    "جراحی کاتاراکت هر دو چشم مادرم با لنزهای چند کانونه توسط دکتر کرباسی انجام شد و الان دیدشون عالیه. تسلط، تجربه و دستان معجزه‌گر خانم دکتر در جراحی آب مروارید حرف اول رو میزنه. از عینک کاملاً بی‌نیاز شدند و کیفیت زندگی‌شان تغییر کرد. با سپاس از تخصص و وجدان کاری بالای خانم دکتر."
+  ],
+  "retina": [
+    "خیلی عالی",
+    "بی نظیرررر هستند",
+    "همه چیز خیلی خوب بود",
+    "فوق‌العاده و بیست",
+    "بسیار راضی بودم",
+    "کارشون حرف نداره",
+    "واقعاً عالی هستن",
+    "تجربه‌ای بسیار خوب",
+    "در یک کلمه بی‌نظیر",
+    "همه چیز عالی پیش رفت",
+    "بسیار متبحر و عالی",
+    "خیلی راضی هستیم",
+    "درمان فوق‌العاده بود",
+    "پزشک بسیار عالی",
+    "کاملاً راضی‌کننده"
+  ],
+  "blepharoplasty": [
+    "عمل بلفاروپلاستی پلک بالا را پیش دکتر نجمه کرباسی انجام دادم و فرم چشم‌هایم کاملاً طبیعی و زیبا شده است. ظرافت کار ایشان در زدن بخیه‌ها باعث شد هیچ رد و اثری از جراحی باقی نماند. همکاران خوش‌برخورد ایشان در مطب راهنمایی‌های بسیار کاملی برای دوران نقاهت ارائه دادند. محیط کاری مطب نیز بسیار تمیز، شیک و منظم بود.",
+    "جراحی زیبایی پلک من توسط دکتر نجمه کرباسی انجام شد و تقارن چشم‌هایم بعد از عمل فوق‌العاده است. دقت بالا و هنر دست خانم دکتر در بلفاروپلاستی واقعاً بی‌نظیر و قابل تحسین است. کادر درمانی و منشی‌های مطب هم با خوش‌رویی فراوان استرس قبل عمل من رو برطرف کردن. فضای کاری ایشون هم بسیار بهداشتی، مدرن و آرام بود.",
+    "عمل بلفاروپلاستی پلک بالا رو پیش دکتر کرباسی انجام دادم و جاش اصلاً نمونده و چشمام شاداب شده. تخصص و مهارت بالای خانم دکتر باعث شد عمل بدون بیهوشی و کاملاً بی‌درد انجام بشه. کادر درمان مطب هم با رفتار حرفه‌ای و مهربان خودشون حس خیلی خوبی دادن. فضای کاری و محیط مطب هم بسیار تمیز و استاندارد بود.",
+    "از نتیجه جراحی بلفاروپلاستی پلک پایین پیش دکتر نجمه کرباسی بی‌نهایت راضی هستم و پف چشمام کاملاً رفع شده. ظرافت کار و تکنیک عالی خانم دکتر باعث شد کمترین میزان کبودی و ورم رو داشته باشم. بعد از دو هفته هیچ جای زخمی روی صورتم باقی نماند. هنر جراحی ایشان در بلفاروپلاستی واقعاً بی‌مانند است.",
+    "افتادگی پلک شدید داشتم که دیدم رو هم کم کرده بود ولی دکتر نجمه کرباسی با یک جراحی تمیز مشکل رو حل کردن. مهارت جراحی و تجربه بالای خانم دکتر در بلفاروپلاستی در همان هفته اول کاملاً مشخص شد. چشمانم بسیار شاداب‌تر و جوان‌تر به نظر می‌رسند. از نتیجه کار فوق‌العاده ایشان بسیار راضی هستم.",
+    "جراحی بلفاروپلاستی هر چهار پلکم رو پیش دکتر نجمه کرباسی انجام دادم و تغییر چهره‌ام بسیار طبیعی و عالی شده. هنر و دقت خانم دکتر در جراحی‌های زیبایی چشم واقعاً حرف اول رو در کشور میزنه. تقارن چشم‌ها کاملاً حفظ شده و هیچ عارضه‌ای ندارم. از کار تمیز و هنرمندانه ایشان کمال تشکر را دارم.",
+    "از ظرافت بخیه‌ها و نتیجه نهایی عمل پلک خودم توسط دکتر کرباسی فوق‌العاده راضی و خوشحال هستم. جراحی ایشون کاملاً اصولی بود و هیچ مشکل باز ماندن پلک یا خشکی چشم پیدا نکردم. خط برش دقیقاً در چین طبیعی پلک پنهان شده است. مهارت زیبایی چشم ایشان واقعاً ستودنی است.",
+    "جراحی بلفاروپلاستی پلک پایین من رو دکتر کرباسی با مهارت و تخصص بالا انجام دادن و چروک‌ها کاملاً رفته. دقت خانم دکتر در حفظ فرم طبیعی چشم حین جراحی واقعاً ستودنی و مایه اطمینان است. گودی و پف کاملاً برطرف شده و چهره‌ام خسته به نظر نمی‌رسد. کار جراحی ایشان واقعاً حرفه‌ای و بی‌نقص است.",
+    "مشاوره قبل عمل و جراحی بلفاروپلاستی من توسط دکتر کرباسی با بالاترین کیفیت و دقت انجام شد. دست سبک خانم دکتر باعث شد دوره نقاهت بسیار کوتاهی داشته باشم و سریع به کارم برگردم. هیچ ورم یا کبودی شدیدی بعد از جراحی نداشتم. تخصص ایشان در پلاستیک چشم واقعاً عالی است.",
+    "جراحی زیبایی پلک بالا انجام دادم و دست دکتر کرباسی درد نکنه که چشمام رو ده سال جوون‌تر کردن. تسلط بالا و تکنیک ظریف خانم دکتر در اتاق عمل باعث شد اصلاً ترسی از جراحی نداشته باشم. تغییرات بسیار مثبت اما کاملاً طبیعی روی چهره‌ام ایجاد شده است. از هنر دست و دانش برتر ایشان بسیار ممنونم.",
+    "بلفاروپلاستی چشمام رو پیش دکتر کرباسی انجام دادم و قرینگی چشمام بعد از کشیدن بخیه‌ها عالی شده. مهارت کار خانم دکتر و وجدان پزشکیشون واقعاً در سطح بسیار بالایی قرار داره و تک هستن. جراحی بسیار راحت‌تر از آن چیزی بود که فکرش را می‌کردم. پیشنهاد می‌کنم برای جراحی پلک حتماً به ایشان مراجعه کنید.",
+    "جراحی افتادگی پلک من توسط دکتر کرباسی با موفقیت کامل انجام شد و فرم چشمام خیلی طبیعی است. تخصص بالای خانم دکتر در جراحی‌های پلاستیک چشم کاملاً مشهود و مایه آرامش خاطر است. خستگی مداوم چشم‌هایم بعد از برداشتن پوست اضافه کاملاً رفع شد. از کار تمیز و حرفه‌ای ایشان سپاسگزارم.",
+    "عمل بلفاروپلاستی پلک‌های من پیش دکتر کرباسی فوق‌العاده راحت و با نتیجه‌ای درخشان انجام شد. ظرافت و هنر دستان خانم دکتر باعث شده هیچکس متوجه رد جراحی روی پلک من نشه. چشم‌هایم حالت بسیار شاداب و جوانی به خود گرفته‌اند. از جراحی بی‌نقص ایشان بی‌نهایت راضی و سپاسگزارم.",
+    "از کار تمیز و بی‌نقص دکتر کرباسی در جراحی بلفاروپلاستی پلک پایینم بسیار سپاسگزارم و پف چشمم کلاً رفت. مهارت و دانش جراحی خانم دکتر واقعاً بی‌نظیر است و نتیجه کارشون کاملاً طبیعی شده. هیچ عارضه یا تغییر فرم نامطلوبی در چشم‌هایم ایجاد نشد. ایشان در بلفاروپلاستی یک استاد واقعی هستند.",
+    "جراحی بلفاروپلاستی پلک بالا چشمام رو دکتر کرباسی انجام دادن و از نتیجه کار فوق‌العاده راضی هستم. تسلط و ظرافت دست خانم دکتر در زدن بخیه‌های مینیاتوری واقعاً تحسین‌برانگیز و عالی بود. تقارن پلک‌ها بی‌نقص است و چشمانم جلوه بسیار زیباتری پیدا کرده‌اند. با تشکر از تخصص ارزشمند ایشان."
+  ]
+}
 
-    def load_key(self, filename, key_name):
-        path = self.get_file_path(filename)
-        if not self.ram_mode and path and os.path.exists(path):
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            except:
-                return self.data[key_name]
-        return self.data[key_name]
-
-    def save_key(self, filename, key_name, value_data):
-        self.data[key_name] = value_data
-        path = self.get_file_path(filename)
-        if not self.ram_mode and path:
-            try:
-                with open(path, "w", encoding="utf-8") as f:
-                    json.dump(value_data, f, ensure_ascii=False, indent=4)
-            except:
-                pass
-
-    def load_settings(self): return self.load_key("settings.json", "settings")
-    def save_settings(self, d): self.save_key("settings.json", "settings", d)
-    def load_comments(self): return self.load_key("comments.json", "comments")
-    def save_comments(self, d): self.save_key("comments.json", "comments", d)
-    def load_users(self): return self.load_key("users.json", "users")
-    def save_users(self, d): self.save_key("users.json", "users", d)
-    def load_logs(self): return self.load_key("logs.json", "logs")
-    def save_logs(self, d): self.save_key("logs.json", "logs", d)
-    def clear_logs(self): self.save_key("logs.json", "logs", [])
-
-
-# =====================================================================
-# ۲. موتور ارسال پیامک خوش‌آمدگویی
-# =====================================================================
-def send_sms(page, mobile, text, mode, settings_data):
-    if not mobile or len(mobile) != 11 or not mobile.startswith("09"): return False
-    if mode == "local":
-        try:
-            encoded_text = urllib.parse.quote(text)
-            page.launch_url(f"sms:{mobile}?body={encoded_text}")
-            return True
-        except: return False
-    elif mode == "api":
-        api_key = settings_data.get("kavenegar_api", "").strip()
-        sender = settings_data.get("kavenegar_sender", "").strip()
-        if not api_key or not sender:
-            try:
-                page.launch_url(f"sms:{mobile}?body={urllib.parse.quote(text)}")
-                return True
-            except: return False
-        try:
-            res = requests.post(f"https://api.kavenegar.com/v1/{api_key}/sms/send.json", data={"receptor": mobile, "message": text, "sender": sender}, timeout=5, verify=False)
-            if res.status_code == 200: return True
-            else:
-                page.launch_url(f"sms:{mobile}?body={urllib.parse.quote(text)}")
-                return False
-        except:
-            page.launch_url(f"sms:{mobile}?body={urllib.parse.quote(text)}")
-            return False
-    return False
-
-
-# =====================================================================
-# ۳. بدنه اصلی برنامه
-# =====================================================================
 def main(page: ft.Page):
-    page.title = "سامانه مدیریت هوشمند کلینیک"
-    page.theme = ft.Theme(color_scheme_seed="teal")
+    # تنظیمات پنجره
+    page.title = "سیستم ثبت هوشمند نظرات بیماران"
+    page.window_width = 460
+    page.window_height = 760
     page.theme_mode = ft.ThemeMode.LIGHT
+    page.theme = ft.Theme(color_scheme_seed="teal") 
     page.rtl = True
-    
-    db = DynamicDataManager()
-    state = {"user": None, "token": None, "category": None}
+    page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
+    page.scroll = ft.ScrollMode.AUTO
 
-    # -----------------------------------------------------------------
-    # بخش الف: فرم ورود (Login Screen)
-    # -----------------------------------------------------------------
-    login_user = ft.TextField(label="نام کاربری منشی", width=300, filled=True)
-    login_pass = ft.TextField(label="رمز عبور حساب", password=True, width=300, filled=True)
-    login_err = ft.Text("⏳ در حال دریافت آخرین اطلاعات مطب از سرور...", color=ft.Colors.BLUE, weight="bold")
-    
-    def do_login(e):
-        u = login_user.value.strip()
-        p = login_pass.value.strip()
-        users = db.load_users()
-        if u in users and str(users[u]["password"]) == str(p) and users[u]["is_active"]:
-            state["user"] = u
-            login_panel.visible = False
-            main_panel.visible = True
-            status_bar.value = f"کاربر {u} خوش آمدید."
-            status_bar.color = ft.Colors.GREY
-            
-            preview_field.visible = users[u].get("can_edit_comments", False)
-            end_shift_btn.visible = users[u].get("can_send_reports", False)
-            
-            btn_settings.visible = True
-            btn_logout.visible = True
-            page.update()
-        else:
-            login_err.value = "❌ نام کاربری یا رمز عبور اشتباه است!"
-            login_err.color = ft.Colors.RED
-            page.update()
-            
-    login_panel = ft.Column([
-        ft.Divider(height=50, color=ft.Colors.TRANSPARENT),
-        ft.Text("🔒", size=60),
-        ft.Text("دروازه ورود کلینیک", size=24, weight="bold"),
-        ft.Divider(height=20, color=ft.Colors.TRANSPARENT),
-        login_user, login_pass,
-        ft.ElevatedButton("ورود به سیستم", on_click=do_login, bgcolor=ft.Colors.TEAL_800, color=ft.Colors.WHITE, width=300),
-        login_err
-    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, visible=True)
+    # متغیرهای ذخیره وضعیت (State)
+    app_state = {
+        "token": None,
+        "category": None,
+        "admin_mode": False
+    }
 
-    # -----------------------------------------------------------------
-    # بخش ب: پنل اصلی فرم‌ها (Main Operation Screen)
-    # -----------------------------------------------------------------
-    mobile_field = ft.TextField(label="شماره موبایل بیمار", width=350, filled=True, keyboard_type=ft.KeyboardType.PHONE, max_length=11)
-    code_field = ft.TextField(label="کد تایید ۴ رقمی", width=150, filled=True, keyboard_type=ft.KeyboardType.NUMBER, max_length=4)
-    status_bar = ft.Text("سیستم آماده به کار است.", color=ft.Colors.GREY, weight="bold", text_align=ft.TextAlign.CENTER)
-    
-    preview_field = ft.TextField(label="متن نظر نوبت.آی‌آر", multiline=True, min_lines=3, width=350, filled=True)
-    sms_text_field = ft.TextField(label="متن پیامک کلینیک", multiline=True, min_lines=2, width=350, filled=True)
-    
-    preview_container = ft.Column([
-        ft.Divider(height=20, color=ft.Colors.TRANSPARENT),
-        preview_field, sms_text_field,
-        ft.Row([
-            ft.ElevatedButton("فقط ثبت نظر", data="submit", on_click=lambda e: execute_action("submit"), bgcolor=ft.Colors.BLUE_600, color=ft.Colors.WHITE, width=145),
-            ft.ElevatedButton("فقط پیامک", data="sms", on_click=lambda e: execute_action("sms"), bgcolor=ft.Colors.ORANGE_600, color=ft.Colors.WHITE, width=145)
-        ], alignment=ft.MainAxisAlignment.CENTER),
-        ft.ElevatedButton("ثبت نظر + ارسال پیامک", data="both", on_click=lambda e: execute_action("both"), bgcolor=ft.Colors.GREEN_600, color=ft.Colors.WHITE, width=300)
-    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, visible=False)
-
-    def request_otp(e):
-        m = mobile_field.value.strip()
-        if len(m) != 11 or not m.startswith("09"):
-            status_bar.value, status_bar.color = "❌ شماره موبایل نامعتبر است.", ft.Colors.RED
-            page.update()
-            return
-        status_bar.value, status_bar.color = "⏳ در حال ارتباط با سرور نوبت...", ft.Colors.BLUE
-        page.update()
+    # --- توابع مدیریت ماندگاری حالت پزشک با فایل لوکال ---
+    def check_admin_status():
         try:
-            res = requests.post("https://api.nobat.ir/patient/login/phone", data={"mobile": m}, timeout=5, verify=False)
-            if res.status_code == 200:
-                data = res.json()
-                if data.get("status") is False:
-                    status_bar.value = "❌ " + data.get('message', 'محدودیت ارسال') + chr(10) + "💡 راهنما: شماره دیگری را امتحان کنید."
-                    status_bar.color = ft.Colors.ORANGE
-                else:
-                    status_bar.value, status_bar.color = "✅ کد تایید با موفقیت پیامک شد.", ft.Colors.GREEN
-            else:
-                status_bar.value = "❌ سرور درخواست را رد کرد." + chr(10) + "💡 راهنما: آی‌پي بلاک شده، حالت پرواز ✈️ بزنید."
-                status_bar.color = ft.Colors.RED
+            with open('admin_status.txt', 'r', encoding='utf-8') as f:
+                return f.read().strip() == "activated"
         except:
-            status_bar.value, status_bar.color = "❌ خطای شبکه! اتصال اینترنت گوشی را بررسی کنید.", ft.Colors.RED
-        page.update()
+            return False
 
-    def verify_otp(category_data):
-        m = mobile_field.value.strip()
-        c = code_field.value.strip()
-        state["category"] = category_data
-        if len(m) != 11 or len(c) != 4:
-            status_bar.value, status_bar.color = "❌ لطفاً موبایل و کد تایید را کامل وارد کنید.", ft.Colors.RED
-            page.update()
-            return
-            
-        status_bar.value, status_bar.color = "⏳ در حال تایید کد...", ft.Colors.BLUE
-        page.update()
-        
-        if c == "1111":
-            state["token"] = "mock_test_token"
-            preview_field.value = random.choice(db.load_comments().get(category_data, ["پزشک عالی است"]))
-            sms_text_field.value = db.load_settings().get("sms_text", "از مراجعه شما سپاسگزاریم.")
-            preview_container.visible = True
-            status_bar.value, status_bar.color = "✅ تست فعال شد. نظر را ثبت کنید.", ft.Colors.ORANGE
-            page.update()
-            return
-
+    def save_admin_status():
         try:
-            res = requests.post("https://api.nobat.ir/patient/login/verify", data={"mobile": m, "code": c}, timeout=5, verify=False)
-            if res.status_code == 200:
-                data = res.json()
-                if "token" in data:
-                    state["token"] = data["token"]
-                    preview_field.value = random.choice(db.load_comments().get(category_data, ["پزشک عالی است"]))
-                    sms_text_field.value = db.load_settings().get("sms_text", "از مراجعه شما سپاسگزاریم.")
-                    preview_container.visible = True
-                    status_bar.value, status_bar.color = "✅ کد تایید شد. گزینه نهایی را انتخاب کنید.", ft.Colors.GREEN
-                else:
-                    status_bar.value = "❌ " + data.get('message', 'کد منقضی شده') + chr(10) + "💡 راهنما: مجدداً دکمه دریافت کد را بزنید."
-                    status_bar.color = ft.Colors.RED
-            else:
-                status_bar.value, status_bar.color = "❌ خطای سرور نوبت. حالت پرواز ✈️ را تست کنید.", ft.Colors.RED
+            with open('admin_status.txt', 'w', encoding='utf-8') as f:
+                f.write("activated")
         except:
-            status_bar.value, status_bar.color = "❌ خطای شبکه در تایید کد.", ft.Colors.RED
-        page.update()
+            pass
 
-    def execute_action(action_type):
-        msgs = []
-        current_settings = db.load_settings()
-        
-        if action_type in ["submit", "both"]:
-            if state["token"] == "mock_test_token":
-                msgs.append("✅ نظر ثبت شد (تست)")
-            else:
-                try:
-                    res = requests.post("https://api.nobat.ir/nuser/comments/store", data={"token": state["token"], "doctor_id": "245932", "comment": preview_field.value, "score": "3"}, timeout=5, verify=False)
-                    if res.status_code == 200:
-                        msgs.append("✅ نظر با موفقیت ثبت شد")
-                    else:
-                        try:
-                            err_txt = res.json().get("message", "خطای محدودیت")
-                            msgs.append(f"❌ {err_txt}")
-                        except: msgs.append(f"❌ خطا ({res.status_code})")
-                except: msgs.append("❌ خطای شبکه نوبت")
-                
-        if action_type in ["sms", "both"]:
-            success = send_sms(page, mobile_field.value, sms_text_field.value, current_settings.get("sms_mode", "local"), current_settings)
-            if success:
-                msgs.append("✅ پیامک ارسال شد")
-            else: msgs.append("❌ خطای پیامک")
-            
-        logs = db.load_logs()
-        logs.append({
-            "date_time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
-            "secretary": state["user"],
-            "mobile": mobile_field.value,
-            "category": state["category"],
-            "action": action_type,
-            "comment": preview_field.value
-        })
-        db.save_logs(logs)
-        
-        status_bar.value = " | ".join(msgs)
-        status_bar.color = ft.Colors.TEAL
-        reset_form()
+    # بازیابی وضعیت از فایل
+    app_state["admin_mode"] = check_admin_status()
 
-    def reset_form():
-        mobile_field.value, code_field.value, preview_field.value = "", "", ""
-        state["token"], preview_container.visible = None, False
-        page.update()
+    # اتصال مستقیم به دیتابیس داخلی کد
+    comments_db = COMMENTS_DB
 
-    def reset_form_click(e):
-        reset_form()
-        status_bar.value, status_bar.color = "فرم پاکسازی شد.", ft.Colors.GREY
-        page.update()
-
-    category_buttons = ft.Column([
-        ft.Row([
-            ft.ElevatedButton("لیزیک", on_click=lambda e: verify_otp("lasik")),
-            ft.ElevatedButton("کاتاراکت", on_click=lambda e: verify_otp("cataract"))
-        ], alignment=ft.MainAxisAlignment.CENTER),
-        ft.Row([
-            ft.ElevatedButton("شبکیه", on_click=lambda e: verify_otp("retina")),
-            ft.ElevatedButton("بلفارو", on_click=lambda e: verify_otp("blepharoplasty"))
-        ], alignment=ft.MainAxisAlignment.CENTER)
-    ])
-
-    end_shift_btn = ft.ElevatedButton("📊 پایان شیفت و ارسال گزارش", on_click=lambda e: show_end_shift(True), bgcolor=ft.Colors.TEAL_800, color=ft.Colors.WHITE, width=350)
-    confirm_section = ft.Column([
-        ft.Text("⚠️ کنتور صفر می‌شود. تایید ارسال نهایی؟", color=ft.Colors.RED_800, weight="bold"),
-        ft.Row([
-            ft.ElevatedButton("✅ بله", on_click=lambda e: do_end_shift(), bgcolor=ft.Colors.GREEN_700, color=ft.Colors.WHITE),
-            ft.ElevatedButton("❌ خیر", on_click=lambda e: show_end_shift(False))
-        ], alignment="center")
-    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, visible=False)
-
-    def show_end_shift(visible_status):
-        end_shift_btn.visible = not visible_status
-        confirm_section.visible = visible_status
-        page.update()
-
-    def do_end_shift():
-        show_end_shift(False)
-        status_bar.value, status_bar.color = "⏳ در حال ارسال گزارش به سرور و پیام‌رسان بله...", ft.Colors.BLUE
-        page.update()
-        
-        logs = db.load_logs()
-        if not logs:
-            status_bar.value, status_bar.color = "⚠️ لیست بیماران امروز خالی است.", ft.Colors.ORANGE
-            page.update()
-            return
-            
-        try:
-            for log in logs:
-                payload = {"Date": log.get("date_time"), "Shift": "شیفت کاری", "Total_Patients": 1, "Treatment_Details": log.get("category"), "Platform": "nobat.ir", "SMS_Mode": log.get("action"), "Total_Income": 0, "Description": log.get("comment")}
-                requests.post("https://api.iranlasik.ir/api/report", json=payload, headers={"x-api-token": "Secure_Key_2026"}, timeout=4, verify=False)
-        except: pass
-
-        output = io.StringIO()
-        output.write('\\ufeff')
-        writer = csv.writer(output)
-        writer.writerow(["ردیف", "موبایل", "درمان", "نظر"])
-        for i, log in enumerate(logs, 1):
-            clean_comment = log.get("comment", "").replace(chr(10), " ")
-            writer.writerow([i, log.get("mobile"), log.get("category"), clean_comment])
-            
-        try:
-            res_bale = requests.post(
-                "https://tapi.bale.ai/bot1137791878:xD-QEx6ZHEuqnzBmBFRUklgzo7wFqTDrOmY/sendDocument",
-                data={"chat_id": "4448378011", "caption": "📊 گزارش پایان شیفت کلینیک" + chr(10) + f"👤 منشی: {state['user']}" + chr(10) + f"👥 تعداد: {len(logs)}"},
-                files={"document": ("Report.csv", output.getvalue().encode('utf-8'), "text/csv")}, timeout=10, verify=False
-            )
-            if res_bale.status_code == 200:
-                db.clear_logs()
-                status_bar.value, status_bar.color = "✅ گزارش امروز با موفقیت ارسال و کنتور صفر شد.", ft.Colors.GREEN
-            else: status_bar.value, status_bar.color = "❌ خطا در سرور بله.", ft.Colors.RED
-        except:
-            status_bar.value, status_bar.color = "❌ خطای شبکه در ارسال فایل گزارش.", ft.Colors.RED
-        page.update()
-
-    # 🟢 تغییر جزئی این خط: اضافه شدن scroll و expand برای فعال شدن اسکرول صفحه اصلی
-    main_panel = ft.Column([
-        mobile_field,
-        ft.ElevatedButton("دریافت کد تایید", on_click=request_otp, width=200, bgcolor=ft.Colors.TEAL_800, color=ft.Colors.WHITE),
-        code_field,
-        category_buttons,
-        ft.TextButton("🧹 پاکسازی فرم جاری", on_click=reset_form_click, icon=ft.Icons.REFRESH, icon_color="red"),
-        preview_container,
-        ft.Divider(height=10),
-        status_bar,
-        ft.Divider(height=10, color="transparent"),
-        end_shift_btn, confirm_section
-    ], horizontal_alignment="center", visible=False, scroll=ft.ScrollMode.AUTO, expand=True)
-
-    # -----------------------------------------------------------------
-    # بخش ج: پنل تنظیمات (Settings Screen)
-    # -----------------------------------------------------------------
-    settings_radio = ft.RadioGroup(content=ft.Column([
-        ft.Radio(value="local", label="📱 ارسال آفلاین (سیم‌کارت گوشی منشی)"),
-        ft.Radio(value="api", label="🌐 ارسال آنلاین (وب‌سرویس کاوه‌نگار)")
-    ]))
-    
-    def open_settings(e):
-        main_panel.visible = False
-        settings_panel.visible = True
-        settings_radio.value = db.load_settings().get("sms_mode", "local")
-        page.update()
-
-    def close_settings(e):
-        settings_panel.visible = False
-        main_panel.visible = True
-        page.update()
-
-    def save_settings_click(e):
-        current_s = db.load_settings()
-        current_s["sms_mode"] = settings_radio.value
-        db.save_settings(current_s)
-        status_bar.value, status_bar.color = "✅ تنظیمات با موفقیت ذخیره شد.", ft.Colors.GREEN
-        close_settings(None)
-
-    def do_logout(e):
-        state["user"] = None
-        main_panel.visible = False
-        settings_panel.visible = False
-        btn_settings.visible = False
-        btn_logout.visible = False
-        login_panel.visible = True
-        page.update()
-
-    settings_panel = ft.Column([
-        ft.Text("⚙️ تنظیمات سیستم ارسال پیامک", size=18, weight="bold"),
-        ft.Divider(height=15, color="transparent"),
-        settings_radio,
-        ft.Divider(height=20, color="transparent"),
-        ft.ElevatedButton("💾 ذخیره تغییرات", on_click=save_settings_click, bgcolor=ft.Colors.GREEN_700, color=ft.Colors.WHITE, width=250),
-        ft.TextButton("⬅️ بازگشت به پنل اصلی", on_click=close_settings)
-    ], horizontal_alignment="center", visible=False)
-
-    # -----------------------------------------------------------------
-    # دکمه‌های ابزار بالای صفحه
-    # -----------------------------------------------------------------
-    btn_settings = ft.TextButton(content=ft.Text("⚙️ تنظیمات", color=ft.Colors.WHITE), on_click=open_settings, visible=False)
-    btn_logout = ft.TextButton(content=ft.Text("🚪 خروج", color=ft.Colors.WHITE), on_click=do_logout, visible=False)
-
-    page.appbar = ft.AppBar(
-        title=ft.Text("مدیریت هوشمند کلینیک", color=ft.Colors.WHITE),
-        bgcolor=ft.Colors.TEAL_700,
-        actions=[btn_settings, btn_logout]
+    # --- المان‌های رابط کاربری ---
+    mobile_field = ft.TextField(
+        label="شماره موبایل بیمار", 
+        width=350, 
+        text_align=ft.TextAlign.LEFT,
+        filled=True,
+        border_radius=10
     )
     
-    page.add(login_panel, main_panel, settings_panel)
+    code_field = ft.TextField(
+        label="کد ۴ رقمی پیامک", 
+        width=150, 
+        text_align=ft.TextAlign.LEFT,
+        filled=True,
+        border_radius=10
+    )
+    
+    # نمایش وضعیت اولیه بر اساس فایل ذخیره‌شده
+    initial_status = "وضعیت: آماده عملیات (حالت پیشرفته فعال)" if app_state["admin_mode"] else "وضعیت: آماده عملیات"
+    initial_color = "blue700" if app_state["admin_mode"] else "grey700"
+    status_text = ft.Text(value=initial_status, color=initial_color, size=14, weight="bold")
 
-    # -----------------------------------------------------------------
-    # دوقلوهای پایش شبکه (تردهای مستقل پس‌زمینه بدون مسدود کردن فلاتر)
-    # -----------------------------------------------------------------
-    def sync_with_server_bg():
+    preview_field = ft.TextField(
+        label="متن نظر (قابل ویرایش)", 
+        multiline=True, 
+        min_lines=3, 
+        max_lines=6,
+        width=350,
+        filled=True,
+        border_radius=10
+    )
+    
+    def show_status(msg, color="green"):
+        status_text.value = msg
+        status_text.color = color
+        page.update()
+
+    # --- توابع دکمه‌ها ---
+    
+    def on_cancel(e=None):
+        mobile_field.value = ""
+        mobile_field.disabled = False
+        code_field.value = ""
+        code_field.disabled = False
+        preview_field.value = ""
+        app_state["token"] = None
+        app_state["category"] = None
+        
+        category_buttons.disabled = False
+        preview_container.visible = False
+        
+        if app_state["admin_mode"]:
+            show_status("فرم پاک شد. آماده برای بیمار جدید (حالت پیشرفته)", "blue700")
+        else:
+            show_status("فرم پاک شد. آماده برای بیمار جدید.", "grey700")
+        page.update()
+
+    # 1️⃣ گام اول: درخواست کد تایید
+    def on_request_otp(e):
+        mobile = mobile_field.value.strip()
+        if not mobile:
+            show_status("❌ ابتدا شماره موبایل را وارد کنید.", "red")
+            return
+        
+        show_status("⏳ در حال ارسال درخواست پیامک...", "blue")
+        url = "https://api.nobat.ir/patient/login/phone"
+        payload = {"mobile": mobile}
+        
         try:
-            res = requests.get("https://api.iranlasik.ir/api/sync", headers={"x-api-token": "Secure_Key_2026"}, timeout=6, verify=False)
-            if res.status_code == 200:
-                data = res.json()
-                if "settings" in data: db.save_settings(data["settings"])
-                if "users" in data: db.save_users(data["users"])
-                if "comments" in data: db.save_comments(data["comments"])
-                login_err.value = "✅ دیتابیس کلینیک با موفقیت همگام‌سازی شد."
-                login_err.color = ft.Colors.GREEN
+            res = requests.post(url, json=payload, headers=HEADERS, timeout=15)
+            if res.status_code == 200 and res.json().get("status") == "success":
+                show_status(f"✅ پیامک به {mobile} ارسال شد. منتظر کد...", "green")
+            else:
+                show_status("❌ خطا در ارسال پیامک. بررسی کنید یا حالت پرواز را تغییر دهید.", "red")
+        except Exception:
+            show_status("❌ خطای شبکه! لطفاً حالت پرواز (Flight Mode) گوشی را یک‌بار روشن و خاموش کنید.", "red")
+
+    # 2️⃣ گام دوم: شکار توکن امنیتی عمومی
+    def on_verify_and_preview(e):
+        category = e.control.data
+        mobile = mobile_field.value.strip()
+        code = code_field.value.strip()
+
+        if not mobile or not code:
+            show_status("❌ شماره موبایل و کد تایید الزامی است.", "red")
+            return
+
+        # بررسی کد جادویی و ذخیره پایدار در فایل
+        if mobile == "09120196457" and code == "0000":
+            app_state["admin_mode"] = True
+            save_admin_status()
+            show_status("🔓 حالت پیشرفته برای همیشه روی این دستگاه فعال شد!", "blue700")
+            mobile_field.value = ""
+            code_field.value = ""
+            page.update()
+            return
+
+        show_status("⏳ در حال بررسی کد تایید...", "blue")
+        verify_url = "https://api.nobat.ir/patient/login/verify"
+        verify_payload = {"mobile": mobile, "code": code}
+        
+        try:
+            res_verify = requests.post(verify_url, json=verify_payload, headers=HEADERS, timeout=15)
+            res_json = res_verify.json()
+            
+            if "token" not in res_json:
+                show_status("❌ کد اشتباه است یا منقضی شده.", "red")
+                return
+            
+            app_state["token"] = res_json["token"]
+            app_state["category"] = category
+            
+            # انتخاب متن رندوم از دیتابیس تعبیه شده
+            preview_field.value = random.choice(comments_db.get(category, ["عالی بود"]))
+            
+            mobile_field.disabled = True
+            code_field.disabled = True
+            category_buttons.disabled = True
+            
+            if app_state["admin_mode"]:
+                preview_container.visible = True
+                show_status("✅ کد تایید شد! نظر را بررسی و ثبت نهایی کنید.", "green")
                 page.update()
-        except:
-            login_err.value = "⚠️ حالت آفلاین؛ سیستم با دیتابیس محلی لود شد."
-            login_err.color = ft.Colors.ORANGE
+            else:
+                show_status("⏳ کد تایید شد. در حال ثبت خودکار نظر در سایت...", "blue")
+                on_final_submit(None) 
+                
+        except Exception:
+            show_status("❌ خطای شبکه در بررسی کد! در صورت تکرار حالت پرواز را روشن/خاموش کنید.", "red")
+
+    def on_regenerate_text(e):
+        cat = app_state["category"]
+        if cat and cat in comments_db:
+            preview_field.value = random.choice(comments_db[cat])
             page.update()
 
-    def bale_polling_bg():
-        TOKEN = "1137791878:xD-QEx6ZHEuqnzBmBFRUklgzo7wFqTDrOmY"
-        BASE_URL = f"https://tapi.bale.ai/bot{TOKEN}"
-        last_update_id = 0
-        while True:
-            try:
-                res = requests.get(f"{BASE_URL}/getUpdates", params={"offset": last_update_id, "timeout": 10}, timeout=15, verify=False)
-                if res.status_code == 200:
-                    updates = res.json().get("result", [])
-                    for update in updates:
-                        last_update_id = update["update_id"] + 1
-                        msg = update.get("message", {})
-                        if "document" in msg and msg["document"].get("file_name") == "clinic_data.json":
-                            file_id = msg["document"]["file_id"]
-                            file_res = requests.get(f"{BASE_URL}/getFile", params={"file_id": file_id}, verify=False).json()
-                            if file_res.get("ok"):
-                                file_path = file_res["result"]["file_path"]
-                                content = requests.get(f"https://tapi.bale.ai/file/bot{TOKEN}/{file_path}", verify=False).text
-                                data = json.loads(content)
-                                if "settings" in data: db.save_settings(data["settings"])
-                                if "comments" in data: db.save_comments(data["comments"])
-                                if "users" in data: db.save_users(data["users"])
-                                page.update()
-            except: pass
-            time.sleep(5)
+    # 3️⃣ گام سوم: ثبت نهایی نظر روی پروفایل پزشک
+    def on_final_submit(e):
+        token = app_state["token"]
+        final_comment = preview_field.value.strip()
+        
+        if not token or not final_comment:
+            show_status("❌ خطای سیستمی: توکن یا متن نظر خالی است.", "red")
+            return
 
-    threading.Thread(target=sync_with_server_bg, daemon=True).start()
-    threading.Thread(target=bale_polling_bg, daemon=True).start()
+        if e is not None:
+            show_status("⏳ در حال ثبت نهایی نظر...", "blue")
+            
+        store_url = "https://api.nobat.ir/nuser/comments/store"
+        store_files = {
+            "token": (None, token),
+            "doctor_id": (None, DOCTOR_ID),
+            "comment": (None, final_comment),
+            "score": (None, "3") 
+        }
+        
+        try:
+            res_store = requests.post(store_url, files=store_files, headers=HEADERS, timeout=15)
+            if res_store.status_code == 200 and res_store.json().get("status") == "success":
+                on_cancel()
+                show_status("🎉 نظر با موفقیت در سایت ثبت شد!", "green")
+            else:
+                on_cancel()
+                show_status("❌ خطا در ثبت نظر در سایت نوبت دات آی آر.", "red")
+        except Exception:
+            on_cancel()
+            show_status("❌ خطای شبکه هنگام ثبت نهایی. وضعیت اتصال را چک کنید.", "red")
 
-if __name__ == "__main__":
-    ft.app(target=main)
+    page.appbar = ft.AppBar(
+        title=ft.Text("سیستم ثبت نظرات درمانگاه", weight="bold", size=18, color="teal"),
+        center_title=True
+    )
+
+    # --- چیدمان دسته‌بندی‌ها ---
+    category_buttons = ft.Column([
+        ft.Row([
+            ft.ElevatedButton("لیزیک", data="lasik", on_click=on_verify_and_preview, width=170, height=45, style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=10))),
+            ft.ElevatedButton("کاتاراکت", data="cataract", on_click=on_verify_and_preview, width=170, height=45, style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=10))),
+        ], alignment=ft.MainAxisAlignment.CENTER, spacing=10),
+        ft.Container(height=2),
+        ft.Row([
+            ft.ElevatedButton("شبکیه / دیابت", data="retina", on_click=on_verify_and_preview, width=170, height=45, style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=10))),
+            ft.ElevatedButton("بلفاروپلاستی", data="blepharoplasty", on_click=on_verify_and_preview, width=170, height=45, style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=10))),
+        ], alignment=ft.MainAxisAlignment.CENTER, spacing=10)
+    ])
+
+    # --- چیدمان مرحله سوم ---
+    preview_container = ft.Container(
+        visible=False,
+        content=ft.Column([
+            ft.Divider(height=20),
+            ft.Text("مرحله سوم: بررسی و تایید نهایی", weight="bold", color="teal", size=15),
+            preview_field,
+            ft.Row([
+                ft.ElevatedButton("تغییر متن (رندوم)", on_click=on_regenerate_text, bgcolor="grey200", color="black", height=45),
+                ft.ElevatedButton("ثبت نهایی نظر", on_click=on_final_submit, bgcolor="green600", color="white", height=45),
+            ], alignment=ft.MainAxisAlignment.CENTER, spacing=10),
+            ft.Container(height=5),
+            ft.TextButton(content=ft.Text("انصراف و پاک کردن فرم", color="red"), on_click=on_cancel)
+        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=10)
+    )
+
+    # --- کانتینر اصلی صفحه ---
+    main_layout = ft.Container(
+        width=400,
+        padding=15,
+        content=ft.Column([
+            ft.Text("مرحله اول:", weight="bold", size=15),
+            mobile_field,
+            ft.ElevatedButton("ارسال کد پیامک به گوشی بیمار", on_click=on_request_otp, width=350, height=45, style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=10))),
+            
+            ft.Divider(height=25),
+            
+            ft.Text("مرحله دوم:", weight="bold", size=15),
+            code_field,
+            ft.Text("نوع درمان را انتخاب کنید (ابتدا کد بررسی می‌شود):", size=13),
+            category_buttons,
+            
+            preview_container, 
+            
+            ft.Divider(height=15),
+            status_text
+            
+        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=12)
+    )
+
+    page.add(main_layout)
+
+ft.app(target=main)
